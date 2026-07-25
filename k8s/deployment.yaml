@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventario-app
+  labels:
+    app: inventario-app
+
+spec:
+  # Se ejecutan como mínimo dos réplicas para mantener disponibilidad.
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: inventario-app
+
+  # Actualiza los Pods gradualmente sin detener toda la aplicación.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+
+  template:
+    metadata:
+      labels:
+        app: inventario-app
+
+    spec:
+      containers:
+        - name: inventario-app
+          image: ghcr.io/cabreram14/inventario-app:latest
+
+          # Fuerza a Kubernetes a consultar la versión latest publicada.
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+
+          env:
+            - name: PORT
+              value: "3000"
+
+            - name: APP_VERSION
+              value: "v1"
+
+            - name: APP_COLOR
+              value: "blue"
+
+          # Determina cuándo el Pod está listo para recibir tráfico.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Comprueba que la aplicación continúe funcionando.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
