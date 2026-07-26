@@ -224,6 +224,39 @@ k8s/
 
 ---
 
+## Manifiestos de la estrategia Canary
+
+Los manifiestos correspondientes a la segunda estrategia de despliegue se encuentran organizados dentro de la carpeta `k8s/canary/`.
+
+```text
+k8s/
+├── deployment.yaml
+├── service.yaml
+└── canary/
+    ├── deployment-stable.yaml
+    ├── deployment-canary.yaml
+    └── service.yaml
+```
+
+Los archivos ubicados directamente en `k8s/` corresponden al despliegue base con estrategia `RollingUpdate`. Los archivos almacenados en `k8s/canary/` implementan la segunda estrategia solicitada.
+
+- `deployment-stable.yaml`: configura cuatro réplicas de la versión estable `v1-stable`.
+- `deployment-canary.yaml`: configura una réplica de la nueva versión `v2-canary`.
+- `service.yaml`: selecciona los Pods de ambas versiones mediante la etiqueta común `app: inventario-app`.
+
+La estrategia puede desplegarse mediante 2 maneras:
+
+```bash
+kubectl apply -f k8s/canary/
+```
+
+```bash
+kubectl apply -f k8s\canary\deployment-stable.yaml
+kubectl apply -f k8s\canary\deployment-canary.yaml
+kubectl apply -f k8s\canary\service.yaml
+```
+---
+
 ## Endpoints
 
 | Método y ruta | Qué hace |
