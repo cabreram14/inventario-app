@@ -4,7 +4,6 @@ metadata:
   name: inventario-app-service
   labels:
     app: inventario-app
-
 spec:
   type: NodePort
 
