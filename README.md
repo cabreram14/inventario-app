@@ -11,14 +11,14 @@
 
 ---
 
-## Inventario App
+# Inventario App
 
 
 Catálogo de inventario con interfaz web y base de datos local. Este proyecto fue extendido para implementar un pipeline completo de CI/CD con Docker, GitHub Actions y Kubernetes, incluyendo diferentes estrategias de despliegue y buenas prácticas de aplicaciones contenerizadas.
 
 ---
 
-## Tecnologías utilizadas
+# Tecnologías utilizadas
 
 - Node.js
 - Express
@@ -26,11 +26,13 @@ Catálogo de inventario con interfaz web y base de datos local. Este proyecto fu
 - GitHub Actions
 - GitHub Container Registry (GHCR)
 - Kubernetes
+- Kubernetes Secrets
+- Trivy
 - Minikube
 
 ---
 
-## Ejecutar en local
+# Ejecutar en local
 
 ```bash
 npm install
@@ -46,7 +48,7 @@ npm test
 
 ---
 
-## Construcción de la imagen Docker
+# Construcción de la imagen Docker
 
 La aplicación utiliza un **Dockerfile Multi-stage**, donde la primera etapa instala las dependencias y ejecuta las pruebas automatizadas. Si alguna prueba falla, la construcción de la imagen se detiene (principio **Fail-Fast**).
 
@@ -66,7 +68,7 @@ docker run -p 3000:3000 inventario-app
 
 ---
 
-## Pipeline CI/CD
+# Pipeline CI/CD
 
 El proyecto implementa un pipeline mediante **GitHub Actions** compuesto por dos trabajos encadenados.
 
@@ -77,7 +79,7 @@ El proyecto implementa un pipeline mediante **GitHub Actions** compuesto por dos
 
 ---
 
-## Despliegue en Kubernetes
+# Despliegue en Kubernetes
 
 La aplicación se despliega utilizando recursos nativos de Kubernetes.
 
@@ -92,9 +94,8 @@ Características del Deployment:
 
 El acceso a la aplicación se realiza mediante un **Service NodePort**.
 
----
 
-## Persistencia de datos
+# Persistencia de datos
 
 La aplicación almacena los productos en un archivo JSON (`data/products.json`) dentro del contenedor.
 
@@ -123,7 +124,7 @@ Consiste en mantener dos Deployments completamente independientes (**Blue** y **
 - Labels
 - Selectors
 
----
+
 
 ## Canary Deployment
 
@@ -136,7 +137,6 @@ Consiste en ejecutar simultáneamente la versión estable y una nueva versión d
 - Labels
 - Réplicas
 
----
 
 ## Comparación
 
@@ -149,7 +149,7 @@ Consiste en ejecutar simultáneamente la versión estable y una nueva versión d
 
 ---
 
-## Estrategia seleccionada
+# Estrategia seleccionada
 
 Para esta práctica se seleccionó la estrategia **Canary**, ya que permite validar una nueva versión con una pequeña parte del tráfico antes de reemplazar completamente la versión estable. Esta estrategia puede implementarse utilizando únicamente recursos nativos de Kubernetes (Deployments y Service), sin necesidad de herramientas adicionales como Argo Rollouts.
 
@@ -224,7 +224,7 @@ k8s/
 
 ---
 
-## Manifiestos de la estrategia Canary
+# Manifiestos de la estrategia Canary
 
 Los manifiestos correspondientes a la segunda estrategia de despliegue se encuentran organizados dentro de la carpeta `k8s/canary/`.
 
@@ -257,7 +257,7 @@ kubectl apply -f k8s\canary\service.yaml
 ```
 ---
 
-## Validación de la estrategia Canary
+# Validación de la estrategia Canary
 
 Para comprobar la distribución de tráfico, se enviaron múltiples solicitudes al endpoint `/version` mediante el Service compartido.
 
@@ -285,7 +285,7 @@ La distribución observada no tiene que ser exactamente 80/20 en cada ejecución
 
 ---
 
-## Manejo de secretos con Kubernetes
+# Manejo de secretos con Kubernetes
 
 Para evitar almacenar credenciales en texto plano dentro de los manifiestos, se creó un Secret de Kubernetes llamado `inventario-app-secret`.
 
@@ -467,7 +467,7 @@ HTTP/1.1 200 OK
 
 ---
 
-## Endpoints
+# Endpoints
 
 | Método y ruta | Qué hace |
 |---|---|
@@ -482,15 +482,32 @@ HTTP/1.1 200 OK
 
 ---
 
-## Variables de entorno
+# Variables de entorno
 
 | Variable | Por defecto | Descripción |
 |---|---|---|
-| `PORT` | `3000` | Puerto del servidor. |
-| `APP_VERSION` | `v1` | Versión de la aplicación. |
-| `APP_COLOR` | `blue` | Color mostrado en la interfaz. |
-| `SIMULATE_FAILURE` | `false` | Simula una falla en el endpoint `/health`. |
-| `DB_PATH` | `./data/products.json` | Ruta del archivo de base de datos local. |
+| `PORT` | `3000` | Puerto donde se ejecuta la aplicación. |
+| `APP_VERSION` | `v1` | Identifica la versión desplegada de la aplicación. |
+| `APP_COLOR` | `blue` | Color utilizado para identificar visualmente la versión desplegada. |
+| `SIMULATE_FAILURE` | `false` | Permite simular una falla en el endpoint `/health` para pruebas de tolerancia a fallos. |
+| `STARTUP_DELAY_SECONDS` | `0` | Tiempo de espera (en segundos) antes de que la aplicación sea considerada lista para recibir tráfico. Se utiliza para validar el funcionamiento de la Readiness Probe. |
+| `DB_PATH` | `./data/products.json` | Ruta del archivo utilizado como base de datos local de la aplicación. |
+
+---
+
+# Conclusiones
+
+Durante el desarrollo de esta práctica se implementó un flujo completo de integración y despliegue continuo (CI/CD) utilizando Docker, GitHub Actions y Kubernetes.
+
+La aplicación fue contenerizada mediante un Dockerfile Multi-stage, permitiendo ejecutar pruebas automáticas antes de generar una imagen optimizada para producción. Posteriormente, el pipeline de GitHub Actions automatizó la construcción de la imagen, el análisis de vulnerabilidades mediante Trivy y su publicación en GitHub Container Registry (GHCR).
+
+En Kubernetes se implementó una estrategia Rolling Update para el despliegue base y una estrategia Canary para distribuir progresivamente el tráfico entre una versión estable y una nueva versión de la aplicación.
+
+Como componentes adicionales se incorporó el uso de Kubernetes Secrets para administrar credenciales de forma segura, Trivy para realizar escaneos automáticos de vulnerabilidades durante el pipeline y una Readiness Probe con arranque lento para garantizar que los Pods únicamente reciban tráfico cuando la aplicación haya finalizado su proceso de inicialización.
+
+Estas implementaciones permiten mejorar la disponibilidad, seguridad y confiabilidad del proceso de despliegue, aplicando buenas prácticas utilizadas actualmente en entornos de integración y entrega continua.
+
+---
 
 # Reproducción completa del proyecto
 
