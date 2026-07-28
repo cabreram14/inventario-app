@@ -366,6 +366,107 @@ Con esta configuración se garantiza que únicamente las imágenes que superen e
 
 ---
 
+# Readiness Probe con Arranque Lento
+
+## Implementación
+
+Se modificó el endpoint `/health` de la aplicación para que utilice una variable de entorno denominada `STARTUP_DELAY_SECONDS`.
+
+```javascript
+const STARTUP_DELAY_SECONDS = Number.parseInt(
+  process.env.STARTUP_DELAY_SECONDS || '0',
+  10
+);
+
+const APPLICATION_START_TIME = Date.now();
+```
+
+Mientras no se cumpla el tiempo configurado, el endpoint responde con el código **HTTP 503 Service Unavailable** indicando que la aplicación continúa inicializando.
+
+```json
+{
+  "status": "starting",
+  "reason": "la aplicación todavía está inicializando"
+}
+```
+
+Una vez transcurrido el tiempo de espera, el mismo endpoint responde correctamente con **HTTP 200 OK**.
+
+```json
+{
+  "status": "ok"
+}
+```
+
+## Configuración en Kubernetes
+
+Se añadió la variable de entorno en los despliegues **Stable** y **Canary**.
+
+```yaml
+env:
+  - name: STARTUP_DELAY_SECONDS
+    value: "20"
+```
+
+Posteriormente se configuró la **Readiness Probe** para consultar periódicamente el endpoint `/health`.
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 3
+  periodSeconds: 3
+  timeoutSeconds: 2
+  failureThreshold: 10
+```
+
+La **Liveness Probe** permanece configurada de forma independiente para evitar reinicios innecesarios durante el proceso de inicialización.
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+```
+
+## Verificación
+
+Para comprobar el funcionamiento del arranque lento se inició la aplicación con la variable:
+
+```bash
+STARTUP_DELAY_SECONDS=20
+```
+
+Durante los primeros segundos el endpoint respondió:
+
+```text
+HTTP/1.1 503 Service Unavailable
+```
+
+```json
+{
+  "status": "starting",
+  "remainingSeconds": 13
+}
+```
+
+Después de finalizar el tiempo de inicialización el servicio respondió:
+
+```text
+HTTP/1.1 200 OK
+```
+
+```json
+{
+  "status": "ok"
+}
+```
+
+---
+
 ## Endpoints
 
 | Método y ruta | Qué hace |

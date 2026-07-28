@@ -7,16 +7,46 @@ const APP_VERSION = process.env.APP_VERSION || 'v1';
 const APP_COLOR = process.env.APP_COLOR || 'blue';
 const SIMULATE_FAILURE = process.env.SIMULATE_FAILURE === 'true';
 
+const STARTUP_DELAY_SECONDS = Number.parseInt(
+  process.env.STARTUP_DELAY_SECONDS || '0',
+  10
+);
+
+const APPLICATION_START_TIME = Date.now();
+
 function createApp() {
   const app = express();
+
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'public')));
 
   app.get('/health', (req, res) => {
-    if (SIMULATE_FAILURE || !db.canAccessDb()) {
-      return res.status(500).json({ status: 'error', reason: 'fallo simulado o base de datos no accesible' });
+    const elapsedSeconds =
+      (Date.now() - APPLICATION_START_TIME) / 1000;
+
+    const remainingSeconds = Math.ceil(
+      STARTUP_DELAY_SECONDS - elapsedSeconds
+    );
+
+    if (elapsedSeconds < STARTUP_DELAY_SECONDS) {
+      return res.status(503).json({
+        status: 'starting',
+        reason: 'la aplicación todavía está inicializando',
+        remainingSeconds,
+      });
     }
-    res.status(200).json({ status: 'ok' });
+
+    if (SIMULATE_FAILURE || !db.canAccessDb()) {
+      return res.status(500).json({
+        status: 'error',
+        reason: 'fallo simulado o base de datos no accesible',
+      });
+    }
+
+    return res.status(200).json({
+      status: 'ok',
+      uptimeSeconds: Math.floor(elapsedSeconds),
+    });
   });
 
   app.get('/version', (req, res) => {
@@ -33,28 +63,59 @@ function createApp() {
 
   app.get('/api/products/:id', (req, res) => {
     const product = db.getById(req.params.id);
-    if (!product) return res.status(404).json({ error: 'producto no encontrado' });
+
+    if (!product) {
+      return res.status(404).json({
+        error: 'producto no encontrado',
+      });
+    }
+
     res.status(200).json(product);
   });
 
   app.post('/api/products', (req, res) => {
     const { name, sku, stock, price } = req.body || {};
+
     if (!name || !sku) {
-      return res.status(400).json({ error: 'name y sku son obligatorios' });
+      return res.status(400).json({
+        error: 'name y sku son obligatorios',
+      });
     }
-    const product = db.create({ name, sku, stock, price });
+
+    const product = db.create({
+      name,
+      sku,
+      stock,
+      price,
+    });
+
     res.status(201).json(product);
   });
 
   app.patch('/api/products/:id', (req, res) => {
-    const updated = db.update(req.params.id, req.body || {});
-    if (!updated) return res.status(404).json({ error: 'producto no encontrado' });
+    const updated = db.update(
+      req.params.id,
+      req.body || {}
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        error: 'producto no encontrado',
+      });
+    }
+
     res.status(200).json(updated);
   });
 
   app.delete('/api/products/:id', (req, res) => {
     const removed = db.remove(req.params.id);
-    if (!removed) return res.status(404).json({ error: 'producto no encontrado' });
+
+    if (!removed) {
+      return res.status(404).json({
+        error: 'producto no encontrado',
+      });
+    }
+
     res.status(204).send();
   });
 
@@ -64,8 +125,19 @@ function createApp() {
 if (require.main === module) {
   const app = createApp();
   const PORT = process.env.PORT || 3000;
+
   app.listen(PORT, () => {
-    console.log('Servidor escuchando en puerto ' + PORT + ' (version=' + APP_VERSION + ', color=' + APP_COLOR + ')');
+    console.log(
+      'Servidor escuchando en puerto ' +
+        PORT +
+        ' (version=' +
+        APP_VERSION +
+        ', color=' +
+        APP_COLOR +
+        ', startupDelay=' +
+        STARTUP_DELAY_SECONDS +
+        's)'
+    );
   });
 }
 
