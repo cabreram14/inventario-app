@@ -491,3 +491,161 @@ HTTP/1.1 200 OK
 | `APP_COLOR` | `blue` | Color mostrado en la interfaz. |
 | `SIMULATE_FAILURE` | `false` | Simula una falla en el endpoint `/health`. |
 | `DB_PATH` | `./data/products.json` | Ruta del archivo de base de datos local. |
+
+# Reproducción completa del proyecto
+
+## 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/cabreram14/inventario-app.git
+cd inventario-app
+```
+
+## 2. Instalar dependencias y ejecutar pruebas
+
+```bash
+npm ci
+npm test
+```
+
+## 3. Construir la imagen Docker
+
+```bash
+docker build --no-cache -t inventario-app:segura .
+```
+
+## 4. Ejecutar la aplicación localmente
+
+```bash
+docker run --rm -p 3000:3000 inventario-app:segura
+```
+
+La aplicación estará disponible en:
+
+```text
+http://localhost:3000
+```
+
+## 5. Iniciar Minikube
+
+```bash
+minikube start
+```
+
+## 6. Crear el Secret
+
+En PowerShell:
+
+```powershell
+kubectl create secret generic inventario-app-secret `
+  --from-literal=API_KEY="REEMPLAZAR_CON_UN_VALOR_SEGURO"
+```
+
+La credencial real no debe almacenarse en el repositorio.
+
+## 7. Desplegar la versión base
+
+```powershell
+kubectl apply -f k8s\deployment.yaml
+kubectl apply -f k8s\service.yaml
+```
+
+## 8. Verificar el despliegue base
+
+```powershell
+kubectl get deployments
+kubectl get pods
+kubectl get services
+kubectl rollout status deployment/inventario-app
+```
+
+## 9. Desplegar la estrategia Canary
+
+```powershell
+kubectl apply -f k8s\canary\deployment-stable.yaml
+kubectl apply -f k8s\canary\deployment-canary.yaml
+kubectl apply -f k8s\canary\service.yaml
+```
+
+## 10. Verificar Stable y Canary
+
+```powershell
+kubectl get deployments
+kubectl get pods -L version
+kubectl get endpoints inventario-app-service
+```
+
+## 11. Obtener la URL de Minikube
+
+```powershell
+minikube service inventario-app-service --url
+```
+
+Guardar la URL generada:
+
+```powershell
+$url = "URL_GENERADA_POR_MINIKUBE"
+```
+
+## 12. Verificar la distribución Canary
+
+```powershell
+1..50 | ForEach-Object {
+    $respuesta = curl.exe -s -H "Connection: close" "$url/version" |
+      ConvertFrom-Json
+    $respuesta.version
+} | Group-Object | Select-Object Name, Count
+```
+
+El resultado debe mostrar respuestas de:
+
+```text
+v1-stable
+v2-canary
+```
+
+## 13. Verificar el Secret
+
+```powershell
+kubectl describe secret inventario-app-secret
+kubectl exec NOMBRE_DEL_POD -- printenv API_KEY
+```
+
+## 14. Verificar la Readiness Probe
+
+```powershell
+kubectl get pods -w
+```
+
+Durante la inicialización el Pod debe aparecer como:
+
+```text
+0/1 Running
+```
+
+Después del tiempo configurado debe cambiar a:
+
+```text
+1/1 Running
+```
+
+## 15. Verificar el endpoint de salud
+
+```powershell
+curl.exe -i "$url/health"
+```
+
+## 16. Eliminar los recursos
+
+```powershell
+kubectl delete -f k8s\canary\
+kubectl delete -f k8s\deployment.yaml
+kubectl delete -f k8s\service.yaml
+kubectl delete secret inventario-app-secret
+```
+
+## 17. Detener Minikube
+
+```powershell
+minikube stop
+```
