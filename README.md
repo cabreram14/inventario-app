@@ -324,6 +324,48 @@ De esta forma, el nombre de la variable puede permanecer en los manifiestos, per
 
 ---
 
+# Escaneo de seguridad con Trivy
+
+Como parte de las buenas prácticas de DevSecOps, el pipeline incorpora un análisis automático de vulnerabilidades utilizando **Trivy** antes de publicar la imagen Docker en GitHub Container Registry.
+
+## Flujo del pipeline
+
+1. Ejecutar pruebas.
+2. Construir la imagen Docker.
+3. Analizar la imagen con Trivy.
+4. Publicar la imagen únicamente si el análisis es satisfactorio.
+
+La configuración utilizada fue:
+
+```yaml
+- name: Escanear imagen con Trivy
+  uses: aquasecurity/trivy-action@master
+  with:
+    image-ref: inventario-app:scan
+    format: table
+    exit-code: "1"
+    ignore-unfixed: true
+    vuln-type: "os,library"
+    severity: "CRITICAL"
+```
+
+## Política de seguridad
+
+El pipeline fue configurado para bloquear automáticamente la publicación de imágenes cuando Trivy detecta vulnerabilidades de severidad **CRITICAL**.
+
+```yaml
+exit-code: "1"
+severity: "CRITICAL"
+```
+
+Durante las pruebas, Trivy detectó una vulnerabilidad crítica en la dependencia **tar**, por lo que GitHub Actions finalizó el proceso con **Exit Code 1**, impidiendo la publicación de la imagen.
+
+Posteriormente se actualizó la versión de npm utilizada durante la construcción de la imagen Docker para mantener compatibilidad con Node.js 20 y reducir el riesgo asociado a dependencias vulnerables.
+
+Con esta configuración se garantiza que únicamente las imágenes que superen el análisis de seguridad puedan ser publicadas en el registro de contenedores.
+
+---
+
 ## Endpoints
 
 | Método y ruta | Qué hace |
