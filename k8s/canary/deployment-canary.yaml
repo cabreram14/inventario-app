@@ -41,6 +41,12 @@ spec:
             - name: APP_COLOR
               value: "green"
 
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: inventario-app-secret
+                  key: API_KEY
+
           readinessProbe:
             httpGet:
               path: /health

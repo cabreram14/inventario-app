@@ -257,6 +257,73 @@ kubectl apply -f k8s\canary\service.yaml
 ```
 ---
 
+## Validación de la estrategia Canary
+
+Para comprobar la distribución de tráfico, se enviaron múltiples solicitudes al endpoint `/version` mediante el Service compartido.
+
+```powershell
+1..50 | ForEach-Object {
+    $respuesta = curl.exe -s -H "Connection: close" "$url/version" | ConvertFrom-Json
+    $respuesta.version
+} | Group-Object | Select-Object Name, Count
+```
+
+La mayoría de las respuestas fueron atendidas por la versión estable `v1-stable`, mientras que una proporción menor correspondió a `v2-canary`.
+
+La distribución se obtiene mediante:
+
+- 4 réplicas de la versión Stable.
+- 1 réplica de la versión Canary.
+- Un único Service que selecciona ambas versiones.
+
+La proporción esperada es aproximadamente:
+
+- 80 % del tráfico hacia Stable.
+- 20 % del tráfico hacia Canary.
+
+La distribución observada no tiene que ser exactamente 80/20 en cada ejecución, ya que depende del balanceo de solicitudes realizado por Kubernetes. Sin embargo, debe comprobarse que ambas versiones reciben tráfico y que la versión Canary aparece con menor frecuencia.
+
+---
+
+## Manejo de secretos con Kubernetes
+
+Para evitar almacenar credenciales en texto plano dentro de los manifiestos, se creó un Secret de Kubernetes llamado `inventario-app-secret`.
+
+El Secret fue creado directamente desde la línea de comandos:
+
+```bash
+kubectl create secret generic inventario-app-secret \
+  --from-literal=API_KEY="valor-ficticio"
+```
+
+El valor no fue almacenado dentro de ningún archivo versionado en Git.
+
+Los Deployments Stable y Canary consumen la credencial mediante `secretKeyRef`:
+
+```yaml
+- name: API_KEY
+  valueFrom:
+    secretKeyRef:
+      name: inventario-app-secret
+      key: API_KEY
+```
+
+La variable fue comprobada dentro de un Pod con:
+
+```bash
+kubectl exec <nombre-del-pod> -- printenv API_KEY
+```
+
+También se verificó que el valor de la credencial no estuviera registrado en el repositorio mediante:
+
+```bash
+git grep "valor-de-la-credencial"
+```
+
+De esta forma, el nombre de la variable puede permanecer en los manifiestos, pero su valor real se administra de manera independiente dentro del clúster.
+
+---
+
 ## Endpoints
 
 | Método y ruta | Qué hace |
