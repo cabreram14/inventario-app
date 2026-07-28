@@ -39,7 +39,12 @@ ENV APP_COLOR=blue
 COPY package*.json ./
 
 # Instalar únicamente dependencias de producción
-RUN npm ci --omit=dev && npm cache clean --force
+# RUN npm ci --omit=dev && npm cache clean --force
+
+# Actualizar npm para corregir dependencias internas vulnerables
+RUN npm install -g npm@11 \
+    && npm ci --omit=dev \
+    && npm cache clean --force
 
 # Copiar únicamente los archivos requeridos para ejecutar la app
 COPY --chown=node:node server.js ./
